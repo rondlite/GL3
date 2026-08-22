@@ -39,6 +39,11 @@ again.
 - The same URL may serve a table and the prefill: `values` can sit alongside
   `rows` in one response, so an existing settings GET adopts prefill by
   adding one object to what it already returns. No second route required.
+  This requires two additive shared-schema changes shipped together:
+  `TableRowsResponseSchema` (which is `.strict()` and parsed by every table
+  and select on mount) gains `values: z.record(z.string()).optional()`, and a
+  new `FormValuesResponseSchema = z.object({ values: z.record(z.string()) }).passthrough()`
+  is what `FormBlock` parses — tolerant of `rows` riding alongside.
 - Absent `valuesSource` (the default), behavior is exactly today's: blank
   form. The field is additive; every existing manifest stays valid.
 
@@ -55,9 +60,18 @@ again.
 - Fetch failure (403/404/500) degrades to a blank form — the pre-prefill
   behavior, never an error wall. A failed prefill must not block the submit
   path.
-- No React Query cache sharing with tables: prefill uses `staleTime: 0` and
-  its own key (`["formValues", valuesSource]`), because a stale prefill
-  re-submits stale values — the one place staleness writes.
+- Plugin pages do not use react-query (`PageRenderer.tsx` is plain
+  `useState`/`useEffect`/`api()` by design); prefill follows the
+  `SelectField` pattern — a cancel-flagged `useEffect` fetch keyed on the
+  path plus the page's existing `refetchSignal`, which already increments
+  only after a successful action. Because the `form` arm currently renders
+  inline in `PageRenderer`'s switch, it is extracted into a `FormBlock`
+  component so the effect is per-form.
+- Known tradeoff, accepted: `refetchSignal` bumps on ANY successful action on
+  the page, and the refetch overwrites the form's fields with the server's
+  stored values — an in-progress edit in form A is lost when form B on the
+  same page submits. Admin pages are single-operator and this mirrors how
+  tables already behave; revisit only if it bites.
 
 ### Secrets
 
@@ -96,8 +110,11 @@ every change here is additive-only, with version bumps and publishes:
    (`plugins/PageRenderer.tsx` / `plugins/render.ts`): fetch, populate,
    refetch-on-submit, degrade-on-failure.
 5. Retrofits, each optional and per-plugin: add `values` to the settings GET
-   and `valuesSource` to the form node for **bullets**, **detectives**,
-   **travel** (and any other admin settings form the grep finds). Their
+   and `valuesSource` to the form node for **bullets** and **detectives**.
+   **Travel is dropped** (amended 2026-08-22): it has no settings form — its
+   only prefillable form is a per-row town editor driven by an `id` select,
+   which the fetch-on-mount model cannot serve and §4's no-per-field-source
+   non-goal excludes; a create form must never be prefilled. Their
    upsert-all POST routes become correct as-is once the form round-trips
    current values.
 6. The Fixer (separate repo, separate release): adopt `valuesSource`; keep
@@ -122,12 +139,17 @@ every change here is additive-only, with version bumps and publishes:
 
 - Shared/SDK: the extended parity case (both `form` schemas accept and
   reject the same shapes).
-- Server: validate.ts rejects a `valuesSource` outside `basePaths` and a
-  non-GET; accepts the fixer-shaped declaration (unit, in the existing
-  validate suite).
+- Server: validate.ts rejects a `valuesSource` outside `basePaths` and
+  accepts the fixer-shaped declaration (unit, in the existing validate
+  suite). Non-GET rejection lives in the schemas' `GET_SOURCE_RE`, not in
+  validate.ts — the parity test's reject case covers it.
 - Web: component test — prefill populates fields, hidden fields untouched,
-  fetch failure renders blank, submit refetches. (The web project's existing
-  form tests are the pattern.)
+  fetch failure renders blank, submit refetches. There is no existing form
+  component test; the pattern is `markdown-editor.test.ts` (jsdom,
+  `createElement` — the `@gl3/web` include glob is `.ts` only) with `fetch`
+  stubbed and the router satisfied. The pure-transform cases in
+  `plugins-render.test.ts` use whole-object `toEqual` and all six form cases
+  change when the instruction gains a key.
 - Retrofit proof: one integration test per retrofitted plugin asserting the
   settings GET now carries `values` mirroring the stored rows; their
   existing POST tests already cover upsert-all.
