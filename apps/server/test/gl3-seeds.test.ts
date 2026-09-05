@@ -6,7 +6,7 @@ import jobsPlugin from "@gl3/plugin-jobs";
 import mccodesAttributesPlugin from "@gl3/plugin-mccodes-attributes";
 import { parseSuccessFormula } from "@gl3/plugin-crimes";
 import { crimes, settings } from "../src/db/schema/index.js";
-import { bootSeedsFor, seedCrimes, seedFamilyContent, seedTempleExchanges, seedUnarmedMelee } from "../src/db/seed.js";
+import { bootSeedsFor, seedCrimes, seedFamilyContent, seedMissWillCost, seedTempleExchanges, seedUnarmedMelee } from "../src/db/seed.js";
 import { runPluginMigrations } from "../src/plugins/migrate.js";
 import { testDb } from "./helpers/db.js";
 
@@ -116,5 +116,23 @@ describe("gl3 seed pack (gl3-hybrid spec §3)", () => {
     await seedUnarmedMelee(db); // a reboot must not undo the operator
     const [edited] = await db.select().from(settings).where(eq(settings.key, "combat.unarmed.model"));
     expect(edited?.value).toBe("firearm");
+  });
+
+  it("missWillCost is gl3-and-combat only, like the unarmed model", () => {
+    expect(bootSeedsFor(["combat"], "gl3").missWillCost).toBe(true);
+    expect(bootSeedsFor(["combat"], "mccodes").missWillCost).toBe(false);
+    expect(bootSeedsFor(["combat"], "v2").missWillCost).toBe(false);
+    expect(bootSeedsFor([], "gl3").missWillCost).toBe(false);
+  });
+
+  it("seedMissWillCost writes 10 once and never clobbers an admin edit", async () => {
+    await db.delete(settings).where(eq(settings.key, "combat.miss.will_cost"));
+    await seedMissWillCost(db);
+    const [row] = await db.select().from(settings).where(eq(settings.key, "combat.miss.will_cost"));
+    expect(row?.value).toBe("10");
+    await db.update(settings).set({ value: "0" }).where(eq(settings.key, "combat.miss.will_cost"));
+    await seedMissWillCost(db);
+    const [edited] = await db.select().from(settings).where(eq(settings.key, "combat.miss.will_cost"));
+    expect(edited?.value).toBe("0");
   });
 });

@@ -33,6 +33,9 @@ describe("readCombatSettings", () => {
       // MCCodes register.php's 10-in-every-stat newbie, added to both sides
       // of every melee ratio. See combat-melee.test.ts.
       melee: { baseline: 10 },
+      // Zero: a missed shot is free until an admin or the gl3 seed says
+      // otherwise. See combat-miss-will.test.ts.
+      miss: { willCost: 0 },
       condition: { wearPerShot: 1, decayPeriodSeconds: 86_400, decayPerPeriod: 1 },
       backfire: { baseChance: 2, wearFactor: 3 },
       repair: { costPerPoint: 1000n, costMultiplier: 3 },
@@ -44,6 +47,13 @@ describe("readCombatSettings", () => {
     expect(readCombatSettings((k) => (k === "melee.baseline" ? "25" : null)).melee.baseline).toBe(25);
     expect(readCombatSettings((k) => (k === "melee.baseline" ? " " : null)).melee.baseline).toBe(10);
     expect(readCombatSettings((k) => (k === "melee.baseline" ? "-5" : null)).melee.baseline).toBe(10);
+  });
+
+  it("reads the miss will cost; default 0 keeps every install free, blank is the default", () => {
+    expect(readCombatSettings(() => null).miss.willCost).toBe(0);
+    expect(readCombatSettings((k) => (k === "miss.will_cost" ? "10" : null)).miss.willCost).toBe(10);
+    expect(readCombatSettings((k) => (k === "miss.will_cost" ? " " : null)).miss.willCost).toBe(0);
+    expect(readCombatSettings((k) => (k === "miss.will_cost" ? "-5" : null)).miss.willCost).toBe(0);
   });
 
   it("reads the unarmed model and power; anything but 'melee' is the firearm model", () => {
@@ -77,6 +87,7 @@ describe("readCombatSettings", () => {
       "unarmed.model": "melee",
       "unarmed.power": "4",
       "melee.baseline": "7",
+      "miss.will_cost": "12",
     }));
 
     expect(settings).toEqual({
@@ -88,6 +99,7 @@ describe("readCombatSettings", () => {
       defaultWeaponAccuracy: 70,
       unarmed: { accuracy: 40, damageMin: 2, damageMax: 8, bulletsPerShot: 3, dps: 2, model: "melee", power: 4 },
       melee: { baseline: 7 },
+      miss: { willCost: 12 },
       condition: { wearPerShot: 1, decayPeriodSeconds: 86_400, decayPerPeriod: 1 },
       backfire: { baseChance: 2, wearFactor: 3 },
       repair: { costPerPoint: 1000n, costMultiplier: 5 },
