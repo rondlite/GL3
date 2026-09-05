@@ -248,7 +248,7 @@ React override, not a bigger schema.
 **Leaves:** `text`, `money`, `error`, `link`, `button`, `cooldownButton`,
 `keyValue`, `form`.
 
-**Nesting:** `panel { title, children }` and `list { items }`.
+**Nesting:** `panel { title, children, layout?, collapsed? }` and `list { items }`. A panel with `collapsed` (true = starts closed) folds behind its title — for explainer text a returning player should not have to scroll past.
 
 A `menu` entry on a page contributes to the merged navigation tree. Every node
 is `.strict()` — a typo'd prop fails loudly rather than being silently dropped.

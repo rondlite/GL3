@@ -42,7 +42,7 @@ export type RenderInstruction =
       rowActions: { label: string; action: string; confirm: string | null }[];
     }
   | { kind: "cards"; cards: string[]; size: "sm" | "md" | "lg"; caption: string | null }
-  | { kind: "panelHeader"; title: string; layout: "row" | null };
+  | { kind: "panelHeader"; title: string; layout: "row" | null; collapsed: boolean | null };
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
@@ -247,6 +247,9 @@ export function renderNode(node: unknown, _handlers: Record<string, (action: str
       // becomes: `groupIntoPanels` reads it back off the header to decide how
       // to lay out the run of instructions that follows.
       layout: node.layout === "row" ? "row" : null,
+      // `null` is a plain panel; a boolean makes it a disclosure that starts
+      // closed (`true`) or open (`false`).
+      collapsed: typeof node.collapsed === "boolean" ? node.collapsed : null,
     }];
     for (const child of childArray(node.children)) out.push(...renderNode(child, _handlers));
     return out;

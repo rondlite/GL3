@@ -346,6 +346,12 @@ export const ViewNodeSchema: z.ZodType<ViewNode> = z.lazy(() =>
         // panel inside a row would break out of it (see PageRenderer's
         // `PanelGroup` comment).
         layout: z.literal("row").optional(),
+        // A collapsible panel: the title becomes a disclosure the reader
+        // opens and closes. `true` starts closed, `false` starts open; absent
+        // is the plain titled panel every page authored before this field
+        // got. For explainer text a page must carry but a returning player
+        // should not have to scroll past.
+        collapsed: z.boolean().optional(),
       })
       .strict(),
     z.object({ kind: z.literal("list"), items: z.array(ViewNodeSchema) }).strict(),

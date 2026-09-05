@@ -28,6 +28,29 @@
   container-type: inline-size;
 }
 .panel:has(> .panelTitle) { margin-top: 1.55rem; }
+/* A folding panel: the tab is a <summary>, so it gets the pointer and a
+   disclosure glyph where the browser's marker would be. Closed, the panel
+   is only its tab and a thin strip of card, so the page reads as a row of
+   folder tabs a player can pull out. */
+.foldTab {
+  cursor: pointer;
+  list-style: none;
+  padding-right: 2rem;
+  user-select: none;
+}
+.foldTab::-webkit-details-marker { display: none; }
+/* Its own element, not .panelTitle::after — that pseudo is the seam cover
+   over the panel's top border and must stay. */
+.foldGlyph {
+  position: absolute;
+  right: 0.7rem;
+  top: 0.32rem;
+  color: var(--gold);
+  letter-spacing: 0;
+}
+.foldGlyph::before { content: "?"; }
+.folding[open] > .foldTab > .foldGlyph::before { content: "–"; }
+.folding:not([open]) { padding-top: 0.35rem; padding-bottom: 0.35rem; }
 /* The spotlight: a soft gold light centred on the pointer (`--mx`/`--my`,
    written by Panel in ui.tsx), fading in on hover. Pointer devices only — a
    thumb has no hover, and the last touch would leave a stray glow. */

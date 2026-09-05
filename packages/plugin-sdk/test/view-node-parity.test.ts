@@ -117,6 +117,15 @@ describe("view node vocabulary parity", () => {
     expect(ViewNodeDtoSchema.safeParse(node).success).toBe(true);
   });
 
+  it("accepts `panel.collapsed` in both the SDK and on the wire", () => {
+    const node = { kind: "panel", title: "How fights work", collapsed: true, children: [{ kind: "text", value: "…" }] };
+    expect(ViewNodeSchema.safeParse(node).success).toBe(true);
+    expect(ViewNodeDtoSchema.safeParse(node).success).toBe(true);
+    const bad = { ...node, collapsed: "yes" };
+    expect(ViewNodeSchema.safeParse(bad).success).toBe(false);
+    expect(ViewNodeDtoSchema.safeParse(bad).success).toBe(false);
+  });
+
   // Property-level parity for the prefill field, same rationale as
   // `table.rowActions` above: both leaves are `.strict()`, so a field one
   // copy lacks takes down the whole payload in the browser.

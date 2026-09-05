@@ -12,12 +12,34 @@ import styles from "./ui.module.css";
  * element's style rather than through state: it changes on every pointer
  * move and must not re-render the panel's children.
  */
-export function Panel({ title, children }: { title?: string; children: ReactNode }): JSX.Element {
+export function Panel({ title, collapsed, children }: {
+  title?: string;
+  /**
+   * Given, the panel is a disclosure: the title tab is the toggle and the
+   * body is hidden while closed. `true` starts closed. Native `<details>`,
+   * so it is keyboard-operable and the open state survives a re-render
+   * without any React state of its own. Needs a title: a disclosure with
+   * nothing to click would be a hidden panel.
+   */
+  collapsed?: boolean | undefined;
+  children: ReactNode;
+}): JSX.Element {
   const onPointerMove = (event: PointerEvent<HTMLElement>): void => {
     const rect = event.currentTarget.getBoundingClientRect();
     event.currentTarget.style.setProperty("--mx", `${event.clientX - rect.left}px`);
     event.currentTarget.style.setProperty("--my", `${event.clientY - rect.top}px`);
   };
+  if (collapsed !== undefined && title !== undefined) {
+    return (
+      <details className={`${styles.panel} ${styles.folding}`} open={!collapsed} onPointerMove={onPointerMove}>
+        <summary className={`${styles.panelTitle} ${styles.foldTab}`}>
+          {title}
+          <span className={styles.foldGlyph} aria-hidden="true" />
+        </summary>
+        {children}
+      </details>
+    );
+  }
   return (
     <section className={styles.panel} onPointerMove={onPointerMove}>
       {title !== undefined ? <h2 className={styles.panelTitle}>{title}</h2> : null}

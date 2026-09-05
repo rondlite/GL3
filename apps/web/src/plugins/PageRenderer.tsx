@@ -38,6 +38,8 @@ interface PanelGroup {
    * title does: once flattened, the header is all that is left of the panel.
    */
   readonly layout: "row" | null;
+  /** A boolean makes the panel a disclosure (`true` starts closed); `null` is a plain panel. */
+  readonly collapsed: boolean | null;
   readonly items: readonly { readonly index: number; readonly inst: RenderInstruction }[];
 }
 
@@ -50,11 +52,12 @@ function groupIntoPanels(instructions: readonly RenderInstruction[]): PanelGroup
   const groups: PanelGroup[] = [];
   let title: string | null = null;
   let layout: "row" | null = null;
+  let collapsed: boolean | null = null;
   let items: { index: number; inst: RenderInstruction }[] = [];
 
   const flush = (): void => {
     // Drops only the leading empty run; an empty panel still renders its header.
-    if (title !== null || items.length > 0) groups.push({ title, layout, items });
+    if (title !== null || items.length > 0) groups.push({ title, layout, collapsed, items });
   };
 
   instructions.forEach((inst, index) => {
@@ -62,6 +65,7 @@ function groupIntoPanels(instructions: readonly RenderInstruction[]): PanelGroup
       flush();
       title = inst.title;
       layout = inst.layout;
+      collapsed = inst.collapsed;
       items = [];
       return;
     }
@@ -979,7 +983,7 @@ export function PageRenderer({ instructions, onActionSuccess }: {
         return group.title === null ? (
           <Fragment key={groupIndex}>{laidOut}</Fragment>
         ) : (
-          <Panel key={groupIndex} title={group.title}>{laidOut}</Panel>
+          <Panel key={groupIndex} title={group.title} collapsed={group.collapsed ?? undefined}>{laidOut}</Panel>
         );
       })}
     </div>

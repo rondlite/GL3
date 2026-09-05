@@ -22,7 +22,7 @@ describe("renderNode", () => {
     expect(out).toHaveLength(3); // header + 2 children
     // `layout` is normalised to a required value, like every other optional
     // field this transform sees; null is the stacked default.
-    expect(out[0]).toEqual({ kind: "panelHeader", title: "P", layout: null });
+    expect(out[0]).toEqual({ kind: "panelHeader", title: "P", layout: null, collapsed: null });
     expect(out[1]).toEqual({ kind: "text", value: "a" });
     expect(out[2]).toEqual({ kind: "text", value: "b" });
   });
@@ -293,7 +293,15 @@ describe("renderNode", () => {
       kind: "panel", title: "The other seats", layout: "row",
       children: [{ kind: "cards", cards: ["Sa"], size: "sm", caption: "Seat 1" }],
     }, {});
-    expect(out[0]).toEqual({ kind: "panelHeader", title: "The other seats", layout: "row" });
+    expect(out[0]).toEqual({ kind: "panelHeader", title: "The other seats", layout: "row", collapsed: null });
+  });
+
+  it("carries a panel's collapsed flag on its header; absent is null", () => {
+    const folded = renderNode({ kind: "panel", title: "How heat works", collapsed: true, children: [] }, {});
+    expect(folded).toEqual([{ kind: "panelHeader", title: "How heat works", layout: null, collapsed: true }]);
+    const open = renderNode({ kind: "panel", title: "Rules", collapsed: false, children: [] }, {});
+    expect(open[0]).toMatchObject({ collapsed: false });
+    expect(renderNode({ kind: "panel", title: "Plain", children: [] }, {})[0]).toMatchObject({ collapsed: null });
   });
 
   it("renders a meter node with label, value and max", () => {

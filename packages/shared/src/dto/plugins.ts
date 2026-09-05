@@ -348,6 +348,8 @@ export const ViewNodeDtoSchema: z.ZodType<unknown> = z.lazy(() =>
       // panel inside a row would break out of it (see PageRenderer's
       // `PanelGroup` comment).
       layout: z.literal("row").optional(),
+      // Same field, same meaning as the SDK's copy (see view-node-parity).
+      collapsed: z.boolean().optional(),
     }).strict(),
     z.object({ kind: z.literal("list"), items: z.array(ViewNodeDtoSchema) }).strict(),
   ]),
