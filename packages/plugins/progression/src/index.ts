@@ -133,6 +133,17 @@ const dashboardWidget = on(coreDashboard, async (ctx, value) => {
       kind: "panel" as const, title: "Progression",
       children: [
         { kind: "text" as const, value: `Level ${row.level} · ${row.exp.toString()} exp` },
+        // The exp bar core's Rank panel drops on a routed boot: rank is
+        // ordinal there and the client cannot know this plugin's curve, so
+        // the plugin that owns `expNeeded` draws the meter itself. `exp` is
+        // within-level and always below `expNeeded(level)` after
+        // `applyExpLevels`, so Number() is exact and the bar never overflows.
+        {
+          kind: "meter" as const,
+          label: `Exp to level ${row.level + 1}`,
+          value: Number(row.exp),
+          max: Number(expNeeded(row.level)),
+        },
       ],
     },
   }];

@@ -123,6 +123,12 @@ describe("progression's core.profileView / core.dashboard subscribers", () => {
       expect(widget?.title).toBe("Progression");
       expect(JSON.stringify(widget?.view)).toContain("Level 4");
       expect(JSON.stringify(widget?.view)).toContain("30 exp");
+      // The exp bar the Rank panel drops under the level model: the plugin
+      // owns the curve, so the widget carries a meter over it — level 4 needs
+      // trunc(5^3 x 2.2) = 275.
+      const view = widget?.view as { kind: string; children: { kind: string }[] };
+      expect(view.kind).toBe("panel");
+      expect(view.children).toContainEqual({ kind: "meter", label: "Exp to level 5", value: 30, max: 275 });
     } finally {
       await server.close();
     }

@@ -1,8 +1,21 @@
+import { Fragment } from "react";
 import { Link } from "react-router-dom";
 import { useSentenceCountdown, formatAmount, formatDuration, rankProgress, renderNode, useDashboardWidgets, useJail, useLocations, useMe, usePlugins, useRanks } from "@gl3/client";
 import { Amount, Loading, Money, Panel } from "../components/ui.js";
 import { PageRenderer } from "../plugins/PageRenderer.js";
 import styles from "./pages.module.css";
+
+/**
+ * Whether the dashboard must draw a widget's titled frame itself. A `panel`
+ * view already becomes one through renderNode → groupIntoPanels (the same
+ * path PluginPage takes), so framing it again nests two same-titled panels —
+ * "Crimes > Crimes", seen live 2026-09-05. Only a bare leaf needs the frame.
+ */
+export function widgetNeedsFrame(view: unknown): boolean {
+  // `view` is `unknown` on the wire (ViewNodeDtoSchema is a lazy schema);
+  // renderNode does its own shape checks, this only needs the root kind.
+  return !(typeof view === "object" && view !== null && (view as { kind?: unknown }).kind === "panel");
+}
 
 export function Dashboard(): JSX.Element {
   const me = useMe();
@@ -103,11 +116,13 @@ export function Dashboard(): JSX.Element {
           pluginId + title so two widgets sharing a title from different
           plugins don't collide and a re-fetch doesn't drop form state across
           widgets. */}
-      {(widgets.data?.widgets ?? []).map((widget) => (
-        <Panel key={`${widget.pluginId}:${widget.title}`} title={widget.title}>
-          <PageRenderer instructions={renderNode(widget.view, {})} />
-        </Panel>
-      ))}
+      {(widgets.data?.widgets ?? []).map((widget) => {
+        const key = `${widget.pluginId}:${widget.title}`;
+        const body = <PageRenderer instructions={renderNode(widget.view, {})} />;
+        return widgetNeedsFrame(widget.view)
+          ? <Panel key={key} title={widget.title}>{body}</Panel>
+          : <Fragment key={key}>{body}</Fragment>;
+      })}
     </>
   );
 }
