@@ -32,6 +32,15 @@ export interface CombatSettings {
     /** Melee model only: the flat power a bare fist swings with. Floored at 1. */
     power: number;
   };
+  melee: {
+    /**
+     * Added to both fighters' strength, agility and guard in every melee
+     * ratio (`MeleeInput.baseline`): MCCodes' 10-in-every-stat newbie, so a
+     * native row that starts at 0 fights like one instead of dividing by the
+     * normalized-1 floor. 0 is legal and is the verbatim PHP.
+     */
+    baseline: number;
+  };
   condition: {
     wearPerShot: number;
     decayPeriodSeconds: number;
@@ -142,6 +151,9 @@ export function readCombatSettings(get: (key: string) => string | null): CombatS
       // than silently rewriting every unarmed shot in the game.
       model: get("unarmed.model") === "melee" ? "melee" : "firearm",
       power: Math.max(1, num(get, "unarmed.power", 1)),
+    },
+    melee: {
+      baseline: num(get, "melee.baseline", 10),
     },
     condition: {
       wearPerShot: num(get, "condition.wear_per_shot", 1),

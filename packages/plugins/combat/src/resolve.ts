@@ -137,6 +137,15 @@ export interface MeleeInput {
   defGuard: number;
   defAgility: number;
   targetArmor: number;
+  /**
+   * Added to BOTH fighters' strength, agility and guard before any ratio is
+   * taken. MCCodes' register.php starts every player at 10 in every stat and
+   * the formula below assumes it; a GL3-native row starts at 0, where the
+   * normalized-1 divisor made a power-1 weapon do 75 damage to an untrained
+   * target and pinned the 95% hit cap on two points of agility. 0 is the
+   * verbatim PHP. `combat.melee.baseline`, default 10.
+   */
+  baseline: number;
 }
 
 /** The four draws a strike needs, taken by the caller so this stays pure. */
@@ -168,6 +177,7 @@ export function rollMelee(): MeleeRolls {
  *
  * Zero stats are normalized to 1 in the two divisors — GL3-native rows
  * carry zeros MCCodes never could, and a division by zero is not balance.
+ * That floor is only reached at `baseline` 0; see `MeleeInput.baseline`.
  */
 export function resolveMeleeStrike(input: MeleeInput, rolls: MeleeRolls): ShotOutcome {
   const miss: ShotOutcome = {
@@ -175,11 +185,12 @@ export function resolveMeleeStrike(input: MeleeInput, rolls: MeleeRolls): ShotOu
     bulletsSpent: 0, backfire: false, selfDamage: 0,
   };
 
-  const ratio = Math.max(10, Math.min((60 * input.attAgility) / Math.max(1, input.defAgility), 95));
+  const b = input.baseline;
+  const ratio = Math.max(10, Math.min((60 * (input.attAgility + b)) / Math.max(1, input.defAgility + b), 95));
   if (rolls.hitRoll >= ratio) return miss;
 
   let raw = Math.floor(
-    (input.power * input.attStrength) / (Math.max(1, input.defGuard) / 1.5)
+    (input.power * (input.attStrength + b)) / (Math.max(1, input.defGuard + b) / 1.5)
       * (rolls.damageRoll / 10000),
   );
   let crit = false;

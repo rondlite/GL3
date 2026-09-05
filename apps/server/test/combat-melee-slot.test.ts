@@ -100,13 +100,15 @@ describe("combat melee-slot precedence (B0)", () => {
       expect(res.json().weapon).toBe("melee");
       expect(res.json().weaponName).toBe("Offhand Knife");
       if (res.json().hit) {
-        // Base 10 × 100 / (50/1.5) floors to 29 before the ±20% swing, so
-        // 23–36 uncritted; the d40 crit table can multiply up to ×4.1. The
-        // exact numbers are unit-pinned in combat-melee.test.ts — the route
-        // draws its own rolls, so this asserts the bounds and the ledger.
+        // 10 × (100+10) / ((50+10)/1.5) = 27.5 before the ±20% swing, so
+        // 22–33 uncritted; the d40 table multiplies up to ×4 (132) and — the
+        // bound the first cut forgot, seen once under load as a 12 — DIVIDES
+        // down to ÷4 (5). The exact numbers are unit-pinned in
+        // combat-melee.test.ts — the route draws its own rolls, so this
+        // asserts the bounds and the ledger.
         const damage = res.json().damage as number;
-        expect(damage).toBeGreaterThanOrEqual(23);
-        expect(damage).toBeLessThanOrEqual(147);
+        expect(damage).toBeGreaterThanOrEqual(5);
+        expect(damage).toBeLessThanOrEqual(132);
         const [v] = await db.select().from(playerStats).where(eq(playerStats.playerId, victim.playerId));
         expect(v?.health).toBe(500 - damage);
       }
@@ -206,10 +208,11 @@ describe("fists under combat.unarmed.model = melee", () => {
       expect(res.json().weaponName).toBeNull();
       expect(res.json().bulletsSpent).toBe(0);
       if (res.json().hit) {
-        // power 2 × 100 / (50/1.5) = 6 before the ±20% swing (4–7), the d40
-        // crit up to ×4.1 — never the firearm model's flat 1–5 with a bullet.
+        // power 2 × (100+10) / ((50+10)/1.5) = 5.5 before the ±20% swing
+        // (4–6), the d40 crit up to ×4 — never the firearm model's flat 1–5
+        // with a bullet.
         expect(res.json().damage).toBeGreaterThanOrEqual(1);
-        expect(res.json().damage).toBeLessThanOrEqual(29);
+        expect(res.json().damage).toBeLessThanOrEqual(24);
       }
       const [after] = await db.select().from(playerStats).where(eq(playerStats.playerId, attacker.playerId));
       expect(after?.bullets).toBe(5n);

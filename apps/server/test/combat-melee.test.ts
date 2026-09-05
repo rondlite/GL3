@@ -14,9 +14,10 @@ afterAll(async () => { await conn.end(); });
 const ROLLS = { hitRoll: 0, damageRoll: 10000, critRoll: 1, critAmountRoll: 30 };
 
 describe("resolveMeleeStrike (pure, attack.php:198-236 verbatim)", () => {
+  // baseline 0 is the verbatim PHP: every figure below is attack.php's own.
   const base = {
     power: 10, attStrength: 100, attAgility: 1000,
-    defGuard: 50, defAgility: 50, targetArmor: 0,
+    defGuard: 50, defAgility: 50, targetArmor: 0, baseline: 0,
   };
 
   it("computes power × strength ÷ (guard/1.5) with the ±20% swing", () => {
@@ -55,7 +56,76 @@ describe("resolveMeleeStrike (pure, attack.php:198-236 verbatim)", () => {
   });
 });
 
+/**
+ * MCCodes' register.php starts every player at 10 in all five stats; GL3-
+ * native rows start at 0. The baseline is added to BOTH fighters' strength,
+ * agility and guard so a native row fights like an MCCodes newbie instead
+ * of dividing by the normalized-1 floor — which is what made a power-1
+ * weapon do 75 damage to an untrained target (1 × 50 × 1.5 ÷ 1).
+ */
+describe("resolveMeleeStrike baseline", () => {
+  const fresh = {
+    power: 1, attStrength: 0, attAgility: 0, defGuard: 0, defAgility: 0, targetArmor: 0, baseline: 10,
+  };
+
+  it("adds the baseline to strength and guard: fresh vs fresh swings 1 × 10 ÷ (10/1.5)", () => {
+    // 1 × (0+10) / ((0+10)/1.5) = 1.5 → floor 1. Without the baseline the
+    // same input is 1 × 0 ÷ (1/1.5) = 0 → the min-1 floor, and with strength
+    // 50 it is 75.
+    expect(resolveMeleeStrike(fresh, { ...ROLLS }).damage).toBe(1);
+    expect(resolveMeleeStrike({ ...fresh, attStrength: 50 }, { ...ROLLS }).damage).toBe(9); // 1 × 60 / (10/1.5) = 9
+    expect(resolveMeleeStrike({ ...fresh, attStrength: 50, baseline: 0 }, { ...ROLLS }).damage).toBe(75);
+  });
+
+  it("adds the baseline to both agilities: fresh vs fresh hits at 60%", () => {
+    // 60 × (0+10) / (0+10) = 60: roll 59 hits, 60 misses. Without the
+    // baseline the ratio is 60 × 0 / 1 = 0 → the 10 floor.
+    expect(resolveMeleeStrike(fresh, { ...ROLLS, hitRoll: 59 }).hit).toBe(true);
+    expect(resolveMeleeStrike(fresh, { ...ROLLS, hitRoll: 60 }).hit).toBe(false);
+    expect(resolveMeleeStrike({ ...fresh, baseline: 0 }, { ...ROLLS, hitRoll: 10 }).hit).toBe(false);
+    // A trained attacker against an untrained target no longer pins the 95
+    // cap on two points of agility: 60 × 12 / 10 = 72.
+    expect(resolveMeleeStrike({ ...fresh, attAgility: 2 }, { ...ROLLS, hitRoll: 71 }).hit).toBe(true);
+    expect(resolveMeleeStrike({ ...fresh, attAgility: 2 }, { ...ROLLS, hitRoll: 72 }).hit).toBe(false);
+  });
+});
+
 describe("melee combat + initiation energy (integration)", () => {
+  it("swings with the baseline on both sides: an untrained pair trades real damage, not the min-1 floor", async () => {
+    const server = await bootTestServer({ plugins: [mccodesAttributes] });
+    const attacker = await registerVerifiedPlayer(server, { remoteAddress: "10.19.2.1" });
+    const victim = await registerVerifiedPlayer(server, { remoteAddress: "10.19.2.2" });
+    const town = crypto.randomUUID();
+    await db.execute(sql`INSERT INTO locations (id, name) VALUES (${town}, ${"Baselineville"})`);
+    const weaponId = crypto.randomUUID();
+    await db.execute(sql`
+      INSERT INTO items (id, name, item_type, effects)
+      VALUES (${weaponId}, ${"Baseline Knife"}, ${"weapon"}, ${JSON.stringify({ power: 10 })}::jsonb)`);
+    // Strength and guard untouched (0 on a native row); agility only so the
+    // strike lands: 60 × 1010 / 10 → the 95 cap.
+    await db.update(playerStats).set({
+      locationId: town, weaponItemId: weaponId, agility: 1000n, exp: 1000n, level: 100,
+    }).where(eq(playerStats.playerId, attacker.playerId));
+    await db.update(playerStats).set({
+      locationId: town, health: 500, exp: 1000n, level: 100,
+    }).where(eq(playerStats.playerId, victim.playerId));
+
+    const res = await server.app.inject({
+      method: "POST", url: `/api/combat/attack/${victim.playerId}`,
+      headers: { authorization: `Bearer ${attacker.token}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().weapon).toBe("melee");
+    if (res.json().hit) {
+      // 10 × (0+10) / ((0+10)/1.5) = 15 before the ±20% swing (12–18); the
+      // d40 table reaches ÷4 (3) and ×4 (72). Without the baseline the
+      // figure is 10 × 0 ÷ (1/1.5) = 0 → exactly the min-1 floor, so a 1 here
+      // is the route ignoring the setting.
+      expect(res.json().damage).toBeGreaterThanOrEqual(3);
+      expect(res.json().damage).toBeLessThanOrEqual(72);
+    }
+  });
+
   it("a melee weapon hits by stats, spends no bullets, wears nothing, and initiation bills once", async () => {
     await db.execute(sql`INSERT INTO settings (key, value) VALUES ('combat.cooldown_seconds', '1')`);
     const server = await bootTestServer({ plugins: [mccodesAttributes] });

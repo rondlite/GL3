@@ -538,7 +538,7 @@ const attackRoute = route({
           power: weapon.power ?? 0,
           attStrength: Number(attacker.strength), attAgility: Number(attacker.agility),
           defGuard: Number(target.guard), defAgility: Number(target.agility),
-          targetArmor,
+          targetArmor, baseline: config.melee.baseline,
         }, rollMelee())
         : resolveShot(weapon, targetArmor, rollFor(weapon));
 
@@ -1017,7 +1017,7 @@ const weaponRoute = route({
         .where(eq(playerStats.playerId, player.id));
       const itemId = stats?.weaponItemId ?? null;
       const strength = stats?.strength ?? 0n;
-      const melee = await describeMeleeSlot(tx, stats?.weaponMeleeItemId ?? null, strength);
+      const melee = await describeMeleeSlot(tx, stats?.weaponMeleeItemId ?? null, strength, config.melee.baseline);
       const fists = describeFists(config, strength);
       if (itemId === null) {
         return {
@@ -1083,19 +1083,29 @@ function describeFists(
   strength: bigint,
 ): { power: number; strength: string; estimate: string } | null {
   if (config.unarmed.model !== "melee") return null;
-  const estimate = (BigInt(config.unarmed.power) * strength * 3n) / 2n;
+  const estimate = meleeEstimate(config.unarmed.power, strength, config.melee.baseline);
   return { power: config.unarmed.power, strength: strength.toString(), estimate: estimate.toString() };
 }
 
 /**
+ * `resolveMeleeStrike`'s raw damage against an UNTRAINED target — guard 0,
+ * which the baseline lifts to `baseline` on both sides — no armor, no swing,
+ * no crit: `floor(power × (strength + b) ÷ (b / 1.5))`. At baseline 0 the
+ * divisor is the normalized 1, the pre-baseline `power × strength × 1.5`.
+ * Bigint throughout: `strength` is a trained bigint column.
+ */
+function meleeEstimate(power: number, strength: bigint, baseline: number): bigint {
+  const b = BigInt(baseline);
+  return (BigInt(power) * (strength + b) * 3n) / (2n * (b > 0n ? b : 1n));
+}
+
+/**
  * The melee slot for the combat page: the weapon, the stat it multiplies
- * and one honest figure. `estimate` is `resolveMeleeStrike`'s raw damage
- * against guard 1, no armor, no swing and no crit —
- * `floor(power × strength ÷ (1 / 1.5))` — the ceiling a strike reaches on
- * an unguarded target. Real damage divides by the target's guard, which a
- * self-describing read cannot know, so the page labels it as such rather
- * than pretending it is a range. Bigint throughout: `strength` is a trained
- * bigint column, and the wire form is the decimal string every bigint uses.
+ * and one honest figure. `estimate` is `meleeEstimate` above — the damage a
+ * strike reaches on an untrained target. Real damage divides by the
+ * target's guard, which a self-describing read cannot know, so the page
+ * labels it as such rather than pretending it is a range. The wire form is
+ * the decimal string every bigint uses.
  *
  * `null` for an empty slot and for a row that no longer parses as melee —
  * the equip gate refuses those, so only a hand-edited row lands here, and
@@ -1105,6 +1115,7 @@ async function describeMeleeSlot(
   tx: PluginTx,
   meleeItemId: string | null,
   strength: bigint,
+  baseline: number,
 ): Promise<{ itemId: string; name: string; power: number; strength: string; estimate: string } | null> {
   if (meleeItemId === null) return null;
   const [row] = await tx.db
@@ -1114,7 +1125,7 @@ async function describeMeleeSlot(
   if (!row || row.itemType !== ITEM_TYPE_WEAPON) return null;
   const parsed = MeleeEffectsSchema.safeParse(row.effects);
   if (!parsed.success) return null;
-  const estimate = (BigInt(parsed.data.power) * strength * 3n) / 2n;
+  const estimate = meleeEstimate(parsed.data.power, strength, baseline);
   return {
     itemId: meleeItemId,
     name: row.name,
@@ -1235,7 +1246,7 @@ const ADMIN_SETTING_KEYS = [
   "newbie_exp_threshold", "newbie_level_threshold", "cooldown_seconds", "cooldown_max_seconds",
   "hospital_seconds", "default_weapon_accuracy", "unarmed.accuracy", "unarmed.damage_min",
   "unarmed.damage_max", "unarmed.bullets_per_shot", "unarmed.dps", "unarmed.model", "unarmed.power",
-  "condition.wear_per_shot",
+  "melee.baseline", "condition.wear_per_shot",
   "condition.decay_period_seconds", "condition.decay_per_period", "backfire.base_chance",
   "backfire.wear_factor", "repair.cost_per_point", "repair.cost_multiplier",
 ] as const;
@@ -1255,6 +1266,7 @@ const ADMIN_SETTING_LABELS: Record<AdminSettingKey, string> = {
   "unarmed.dps": "Unarmed dps (blank = flat cooldown)",
   "unarmed.model": "Unarmed model: firearm (the settings above) or melee (power × strength, no bullets)",
   "unarmed.power": "Unarmed power (melee model only)",
+  "melee.baseline": "Melee baseline: added to both fighters' strength, agility and guard (MCCodes newbies start at 10; 0 = raw stats)",
   "condition.wear_per_shot": "Weapon wear per shot (condition points)",
   "condition.decay_period_seconds": "Weapon decay period (seconds)",
   "condition.decay_per_period": "Weapon decay per period (condition points)",
@@ -1279,6 +1291,7 @@ const ADMIN_FIELDS: Record<AdminSettingKey, "number" | "money" | "select"> = {
   "unarmed.dps": "number",
   "unarmed.model": "select",
   "unarmed.power": "number",
+  "melee.baseline": "number",
   "condition.wear_per_shot": "number",
   "condition.decay_period_seconds": "number",
   "condition.decay_per_period": "number",
@@ -1354,6 +1367,7 @@ const adminSettingsListRoute = route({
       "unarmed.dps": effective.unarmed.dps === undefined ? "" : String(effective.unarmed.dps),
       "unarmed.model": effective.unarmed.model,
       "unarmed.power": String(effective.unarmed.power),
+      "melee.baseline": String(effective.melee.baseline),
       "condition.wear_per_shot": String(effective.condition.wearPerShot),
       "condition.decay_period_seconds": String(effective.condition.decayPeriodSeconds),
       "condition.decay_per_period": String(effective.condition.decayPerPeriod),

@@ -30,10 +30,20 @@ describe("readCombatSettings", () => {
       // `dps` absent, not zero: a weapon (or fist) that declares no rate of
       // fire keeps the flat cooldown. See combat-cooldown.test.ts.
       unarmed: { accuracy: 25, damageMin: 1, damageMax: 5, bulletsPerShot: 1, dps: undefined, model: "firearm", power: 1 },
+      // MCCodes register.php's 10-in-every-stat newbie, added to both sides
+      // of every melee ratio. See combat-melee.test.ts.
+      melee: { baseline: 10 },
       condition: { wearPerShot: 1, decayPeriodSeconds: 86_400, decayPerPeriod: 1 },
       backfire: { baseChance: 2, wearFactor: 3 },
       repair: { costPerPoint: 1000n, costMultiplier: 3 },
     });
+  });
+
+  it("reads the melee baseline; zero is a legal value (verbatim PHP), blank is the default", () => {
+    expect(readCombatSettings((k) => (k === "melee.baseline" ? "0" : null)).melee.baseline).toBe(0);
+    expect(readCombatSettings((k) => (k === "melee.baseline" ? "25" : null)).melee.baseline).toBe(25);
+    expect(readCombatSettings((k) => (k === "melee.baseline" ? " " : null)).melee.baseline).toBe(10);
+    expect(readCombatSettings((k) => (k === "melee.baseline" ? "-5" : null)).melee.baseline).toBe(10);
   });
 
   it("reads the unarmed model and power; anything but 'melee' is the firearm model", () => {
@@ -66,6 +76,7 @@ describe("readCombatSettings", () => {
       "unarmed.dps": "2",
       "unarmed.model": "melee",
       "unarmed.power": "4",
+      "melee.baseline": "7",
     }));
 
     expect(settings).toEqual({
@@ -76,6 +87,7 @@ describe("readCombatSettings", () => {
       newbieLevelThreshold: 3,
       defaultWeaponAccuracy: 70,
       unarmed: { accuracy: 40, damageMin: 2, damageMax: 8, bulletsPerShot: 3, dps: 2, model: "melee", power: 4 },
+      melee: { baseline: 7 },
       condition: { wearPerShot: 1, decayPeriodSeconds: 86_400, decayPerPeriod: 1 },
       backfire: { baseChance: 2, wearFactor: 3 },
       repair: { costPerPoint: 1000n, costMultiplier: 5 },

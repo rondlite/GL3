@@ -154,8 +154,9 @@ describe("GET /api/combat/weapon", () => {
     await db.update(playerStats).set({ weaponItemId: null, strength: 40n })
       .where(eq(playerStats.playerId, player));
     const dto = WeaponConditionDtoSchema.parse((await get(token, "/api/combat/weapon")).json());
-    // 2 × 40 × 1.5 = 120, the same arithmetic as the melee slot's estimate.
-    expect(dto.fists).toEqual({ power: 2, strength: "40", estimate: "120" });
+    // 2 × (40 + baseline 10) ÷ (baseline 10 / 1.5) = 15, the same arithmetic
+    // as the melee slot's estimate: an untrained target guards at the baseline.
+    expect(dto.fists).toEqual({ power: 2, strength: "40", estimate: "15" });
     expect(dto.firearm).toBeNull();
   });
 
@@ -174,11 +175,11 @@ describe("GET /api/combat/weapon", () => {
       .where(eq(playerStats.playerId, player));
 
     const dto = WeaponConditionDtoSchema.parse((await get(token, "/api/combat/weapon")).json());
-    // floor(power × strength ÷ (guard 1 / 1.5)) = 12 × 40 × 1.5 = 720 — the
-    // unguarded, unarmored, uncritted figure; real damage divides by the
-    // target's guard, which this route cannot know.
+    // floor(power × (strength + baseline) ÷ (baseline / 1.5)) = 12 × 50 ÷
+    // (10 / 1.5) = 90 — the untrained-target, unarmored, uncritted figure;
+    // real damage divides by the target's guard, which this route cannot know.
     expect(dto.melee).toEqual({
-      itemId: knifeId, name: "Estimate Knife", power: 12, strength: "40", estimate: "720",
+      itemId: knifeId, name: "Estimate Knife", power: 12, strength: "40", estimate: "90",
     });
     // Slot 1 is untouched by the melee slot.
     expect(dto.firearm?.itemId).toBe(weaponId);
