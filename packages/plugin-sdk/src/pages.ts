@@ -312,7 +312,9 @@ export type ViewNode =
   // with `exactOptionalPropertyTypes`, under which zod's own inferred
   // `.optional()` shape (which does include `undefined`) is not assignable to
   // a bare optional property.
-  | { kind: "panel"; title: string; children: ViewNode[]; layout?: "row" | undefined }
+  // The panel's fields live here by hand as well as in the schema below;
+  // `view-node-parity.test.ts` pins the two together at compile time.
+  | { kind: "panel"; title: string; children: ViewNode[]; layout?: "row" | undefined; collapsed?: boolean | undefined }
   | { kind: "list"; items: ViewNode[] };
 
 /**

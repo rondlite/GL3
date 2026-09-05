@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { ViewNodeDtoSchema } from "@gl3/shared";
-import { ViewNodeSchema } from "../src/pages.js";
+import { ViewNodeSchema, type ViewNode } from "../src/pages.js";
+
+// `ViewNode` is hand-written for the recursive members (`panel`, `list`), so
+// a field added to the panel schema alone parses at boot and still fails a
+// plugin author's compile. This literal is the compile-time half of the
+// panel parity test below: drop a panel field from the type and it stops
+// type-checking.
+const panelWithEveryField: ViewNode = {
+  kind: "panel", title: "t", layout: "row", collapsed: true, children: [{ kind: "text", value: "x" }],
+};
+void panelWithEveryField;
 
 /**
  * The view-node vocabulary is defined TWICE — `leafOptions` in
