@@ -1341,7 +1341,10 @@ const AdminSettingsBodySchema = z.object(
 
 const adminUnarmedModelsRoute = route({
   method: "GET", path: "/api/admin/combat/unarmed-models", auth: "admin",
-  handler: async () => ({ status: 200, body: UNARMED_MODELS }),
+  // `{ rows }`: PageRenderer's select widget parses an optionsSource with
+  // TableRowsResponseSchema (travel's combat-modes shape). A bare array
+  // rendered a zod error in place of the select.
+  handler: async () => ({ status: 200, body: { rows: UNARMED_MODELS } }),
 });
 
 const adminSettingsListRoute = route({
@@ -1441,6 +1444,7 @@ const adminPage: PageSchema = {
         { name: "unarmed.model", label: "Unarmed model", type: "select",
           optionsSource: "GET /api/admin/combat/unarmed-models", valueKey: "id", labelKey: "name", allowEmpty: true },
         { name: "unarmed.power", label: "Unarmed power (melee model)", type: "number" },
+        { name: "melee.baseline", label: "Melee baseline (added to both fighters' stats; 0 = raw)", type: "number" },
         { name: "condition.wear_per_shot", label: "Wear per shot", type: "number" },
         { name: "condition.decay_period_seconds", label: "Decay period (seconds)", type: "number" },
         { name: "condition.decay_per_period", label: "Decay per period", type: "number" },

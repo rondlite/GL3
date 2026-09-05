@@ -126,6 +126,29 @@ describe("admin combat settings form on the default (level) boot", () => {
       method: "GET", url: "/api/admin/combat/unarmed-models", headers: { authorization: `Bearer ${adminToken}` },
     });
     expect(options.statusCode).toBe(200);
-    expect(options.json().map((o: { id: string }) => o.id)).toEqual(["firearm", "melee"]);
+    // `{ rows }`, not a bare array: PageRenderer's select widget parses an
+    // optionsSource with TableRowsResponseSchema, and a bare array rendered
+    // as `Expected object, received array` in place of the select.
+    expect(options.json().rows.map((o: { id: string }) => o.id)).toEqual(["firearm", "melee"]);
+  });
+
+  it("declares a form field for every setting the table lists", async () => {
+    // The form is a hand-written list beside ADMIN_SETTING_KEYS; a key added
+    // to the reader and the table but not here is admin-visible and
+    // admin-uneditable (melee.baseline shipped that way).
+    const sections = await app.inject({
+      method: "GET", url: "/api/admin/plugins", headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const combat = (sections.json() as SectionsResponse).sections.find((s) => s.pluginId === "combat");
+    const form = findForm(combat!.pages[0]!.view, "POST /api/admin/combat/settings");
+    const fieldNames = (form!.fields ?? []).map((f) => f.name);
+
+    const list = await app.inject({
+      method: "GET", url: "/api/admin/combat/settings", headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const keys = (list.json() as { rows: { key: string }[] }).rows.map((r) => r.key);
+    // The server prunes the other progression model's newbie field before
+    // the view reaches the wire; this describe is the level boot.
+    expect(fieldNames).toEqual(keys.filter((k) => k !== "newbie_exp_threshold"));
   });
 });
