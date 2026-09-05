@@ -542,6 +542,20 @@ const attackRoute = route({
         }, rollMelee())
         : resolveShot(weapon, targetArmor, rollFor(weapon));
 
+      // A miss costs will (`miss.will_cost`): composure, the pool crime
+      // formulas (`WILL`) and gym yield both read. A backfire is not a miss.
+      // Clamped to the pool rather than `spend`'s 409 — the bullet is already
+      // gone and the shot has fired, so an empty pool cannot refuse it — and
+      // `willMax === 0` means no plugin declared the pool, so an install
+      // without attributes is byte-identical. The attacker's row is already
+      // held FOR UPDATE by the lock above: no new lock, no new edge.
+      if (!outcome.hit && !outcome.backfire && config.miss.willCost > 0) {
+        const attrs = await tx.attributes.read(player.id);
+        if (attrs.willMax > 0) {
+          await tx.attributes.spend(player.id, "will", Math.min(config.miss.willCost, attrs.will));
+        }
+      }
+
       // Every shot wears the weapon, hit or miss or backfire: as with bullets,
       // the cost is firing, not connecting.
       //
@@ -1246,7 +1260,7 @@ const ADMIN_SETTING_KEYS = [
   "newbie_exp_threshold", "newbie_level_threshold", "cooldown_seconds", "cooldown_max_seconds",
   "hospital_seconds", "default_weapon_accuracy", "unarmed.accuracy", "unarmed.damage_min",
   "unarmed.damage_max", "unarmed.bullets_per_shot", "unarmed.dps", "unarmed.model", "unarmed.power",
-  "melee.baseline", "condition.wear_per_shot",
+  "melee.baseline", "miss.will_cost", "condition.wear_per_shot",
   "condition.decay_period_seconds", "condition.decay_per_period", "backfire.base_chance",
   "backfire.wear_factor", "repair.cost_per_point", "repair.cost_multiplier",
 ] as const;
@@ -1267,6 +1281,7 @@ const ADMIN_SETTING_LABELS: Record<AdminSettingKey, string> = {
   "unarmed.model": "Unarmed model: firearm (the settings above) or melee (power × strength, no bullets)",
   "unarmed.power": "Unarmed power (melee model only)",
   "melee.baseline": "Melee baseline: added to both fighters' strength, agility and guard (MCCodes newbies start at 10; 0 = raw stats)",
+  "miss.will_cost": "Will spent on a missed shot (0 = free; needs a plugin declaring the will pool)",
   "condition.wear_per_shot": "Weapon wear per shot (condition points)",
   "condition.decay_period_seconds": "Weapon decay period (seconds)",
   "condition.decay_per_period": "Weapon decay per period (condition points)",
@@ -1292,6 +1307,7 @@ const ADMIN_FIELDS: Record<AdminSettingKey, "number" | "money" | "select"> = {
   "unarmed.model": "select",
   "unarmed.power": "number",
   "melee.baseline": "number",
+  "miss.will_cost": "number",
   "condition.wear_per_shot": "number",
   "condition.decay_period_seconds": "number",
   "condition.decay_per_period": "number",
@@ -1371,6 +1387,7 @@ const adminSettingsListRoute = route({
       "unarmed.model": effective.unarmed.model,
       "unarmed.power": String(effective.unarmed.power),
       "melee.baseline": String(effective.melee.baseline),
+      "miss.will_cost": String(effective.miss.willCost),
       "condition.wear_per_shot": String(effective.condition.wearPerShot),
       "condition.decay_period_seconds": String(effective.condition.decayPeriodSeconds),
       "condition.decay_per_period": String(effective.condition.decayPerPeriod),
@@ -1445,6 +1462,7 @@ const adminPage: PageSchema = {
           optionsSource: "GET /api/admin/combat/unarmed-models", valueKey: "id", labelKey: "name", allowEmpty: true },
         { name: "unarmed.power", label: "Unarmed power (melee model)", type: "number" },
         { name: "melee.baseline", label: "Melee baseline (added to both fighters' stats; 0 = raw)", type: "number" },
+        { name: "miss.will_cost", label: "Will spent on a missed shot (0 = free)", type: "number" },
         { name: "condition.wear_per_shot", label: "Wear per shot", type: "number" },
         { name: "condition.decay_period_seconds", label: "Decay period (seconds)", type: "number" },
         { name: "condition.decay_per_period", label: "Decay per period", type: "number" },

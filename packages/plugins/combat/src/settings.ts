@@ -41,6 +41,15 @@ export interface CombatSettings {
      */
     baseline: number;
   };
+  miss: {
+    /**
+     * Will spent on a MISSED shot — firearm or melee, never a backfire, which
+     * is not a miss. Flat, clamped to the pool by the caller (the shot has
+     * already fired), and a no-op where no plugin declares `will`. Default 0
+     * keeps every install free; the gl3 profile seeds 10 (`db/seed.ts`).
+     */
+    willCost: number;
+  };
   condition: {
     wearPerShot: number;
     decayPeriodSeconds: number;
@@ -154,6 +163,9 @@ export function readCombatSettings(get: (key: string) => string | null): CombatS
     },
     melee: {
       baseline: num(get, "melee.baseline", 10),
+    },
+    miss: {
+      willCost: num(get, "miss.will_cost", 0),
     },
     condition: {
       wearPerShot: num(get, "condition.wear_per_shot", 1),

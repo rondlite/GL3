@@ -18,7 +18,7 @@ type SeedProfile = "gl3" | "v2" | "mccodes" | "framework";
  */
 export function bootSeedsFor(loadedPluginIds: Iterable<string>, profile: SeedProfile): {
   crimes: boolean; ranks: true; locations: boolean; items: boolean;
-  family: boolean; templeExchanges: boolean; unarmedMelee: boolean;
+  family: boolean; templeExchanges: boolean; unarmedMelee: boolean; missWillCost: boolean;
 } {
   const ids = loadedPluginIds instanceof Set ? loadedPluginIds : new Set(loadedPluginIds);
   return {
@@ -32,6 +32,10 @@ export function bootSeedsFor(loadedPluginIds: Iterable<string>, profile: SeedPro
     // fists (what MCCodes did unarmed is unverified, so the faithful port is
     // left alone) and v2 has no strength to swing.
     unarmedMelee: profile === "gl3" && ids.has("combat"),
+    // gl3 only, same reasoning: a miss costing will is a GL3 rule, not
+    // MCCodes' (attack.php charges energy, never will) nor V2's (no pools).
+    // Inert anyway wherever no plugin declares the pool.
+    missWillCost: profile === "gl3" && ids.has("combat"),
   };
 }
 
@@ -84,6 +88,16 @@ export async function seedTempleExchanges(db: Db): Promise<void> {
  */
 export async function seedUnarmedMelee(db: Db): Promise<void> {
   await db.insert(settings).values({ key: "combat.unarmed.model", value: "melee" })
+    .onConflictDoNothing({ target: settings.key });
+}
+
+/**
+ * gl3's composure tax: `combat.miss.will_cost = 10`, one will regen tick per
+ * missed shot, clamped to the pool at charge time. onConflictDoNothing so
+ * an admin's own figure survives a reboot.
+ */
+export async function seedMissWillCost(db: Db): Promise<void> {
+  await db.insert(settings).values({ key: "combat.miss.will_cost", value: "10" })
     .onConflictDoNothing({ target: settings.key });
 }
 

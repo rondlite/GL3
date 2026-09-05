@@ -357,6 +357,7 @@ export default defineWorkspace([
         "test/mccodes-member-regen.test.ts",
         "test/combat-melee.test.ts",
         "test/combat-melee-slot.test.ts",
+        "test/combat-miss-will.test.ts",
         "test/auth-reset.test.ts",
         "test/auth-verify.test.ts",
         "test/auth.test.ts",
