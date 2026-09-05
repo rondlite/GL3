@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { GameStatsResponse, PropertyRow } from "@gl3/shared";
+import type { GameStatsResponse, PlayerAttributesDto, PropertyRow } from "@gl3/shared";
 import { Amount, ErrorText, Loading, Money, Panel, When } from "../components/ui.js";
 import { rankProgress, barPath, countFractions, indexOfMax, layoutBars, moneyFractions, useMe, usePlugins, useProperties, useRanks, useStats } from "@gl3/client";
 import styles from "./Stats.module.css";
@@ -94,6 +94,25 @@ export function ownedProperties(rows: readonly PropertyRow[], username: string):
 }
 
 /**
+ * The attribute family's figures as tile rows, in display order. The pools
+ * already have bars in the HUD; this is where the trained stats, IQ and
+ * crime exp become visible at all — before it, agility showed only on the
+ * gym page and IQ and crime exp nowhere. Values are the wire's decimal
+ * strings, passed through untouched: every one is a bigint column.
+ */
+export function attributeTiles(attributes: PlayerAttributesDto): { label: string; value: string }[] {
+  return [
+    { label: "Level", value: String(attributes.level) },
+    { label: "Strength", value: attributes.strength },
+    { label: "Agility", value: attributes.agility },
+    { label: "Guard", value: attributes.guard },
+    { label: "Labour", value: attributes.labour },
+    { label: "IQ", value: attributes.iq },
+    { label: "Crime exp", value: attributes.crimeExp },
+  ];
+}
+
+/**
  * The player's own standing: the HUD's numbers, laid out as tiles, plus the
  * properties they own. Renders nothing until /api/auth/me answers — the city
  * panels below don't depend on it, so the page never blocks on this panel.
@@ -128,6 +147,21 @@ function You(): JSX.Element | null {
           : null}
         <Tile label="Rank" value={rank.current?.name ?? "Unranked"} />
       </div>
+
+      {/* Absent entirely on an install with no attribute plugin (the field
+          is omitted from /api/auth/me), so a V2 boot shows no zero row. */}
+      {me.data.attributes !== undefined
+        ? (
+          <>
+            <h3 className={styles.subhead}>Attributes</h3>
+            <div className={styles.tiles}>
+              {attributeTiles(me.data.attributes).map((tile) => (
+                <Tile key={tile.label} label={tile.label} value={<Amount value={tile.value} />} />
+              ))}
+            </div>
+          </>
+        )
+        : null}
 
       <h3 className={styles.subhead}>Properties owned ({owned.length})</h3>
       {owned.length === 0

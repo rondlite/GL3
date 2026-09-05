@@ -68,6 +68,28 @@ describe("GET /api/auth/me — attributes", () => {
     }
   });
 
+  it("reports the trained stats, IQ and crime exp as decimal strings", async () => {
+    // The stats page is the one place a player sees these; every one is a
+    // bigint column, so a JSON number would reintroduce floating point.
+    const server = await bootTestServer({ profile: "v2", plugins: [gymPlugin] });
+    try {
+      const { token, playerId } = await registerVerifiedPlayer(server, { remoteAddress: "10.9.2.6" });
+      await db.update(playerStats)
+        .set({ strength: 12n, agility: 34n, guard: 56n, labour: 78n, iq: 90n, crimeExp: 123n })
+        .where(eq(playerStats.playerId, playerId));
+      const res = await server.app.inject({
+        method: "GET", url: "/api/auth/me",
+        headers: { authorization: `Bearer ${token}` },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().attributes).toMatchObject({
+        strength: "12", agility: "34", guard: "56", labour: "78", iq: "90", crimeExp: "123",
+      });
+    } finally {
+      await server.close();
+    }
+  });
+
   it("seeds declared pools full at registration; the read stays display-only", async () => {
     const server = await bootTestServer({ profile: "v2", plugins: [gymPlugin] });
     try {
@@ -84,6 +106,7 @@ describe("GET /api/auth/me — attributes", () => {
       expect(body.attributes.energyMax).toBe(10);
       expect(body.attributes.strength).toBe("0");
       expect(body.attributes.iq).toBe("0");
+      expect(body.attributes.crimeExp).toBe("0");
 
       // The row was written by REGISTRATION (current = max = defaultMax,
       // stamp NULL), not by this read: the display-only settle still takes no

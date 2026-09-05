@@ -38,6 +38,8 @@ export const PlayerAttributesDtoSchema = z.object({
   brave: z.number().int(), braveMax: z.number().int(),
   level: z.number().int(),
   strength: z.string(), agility: z.string(), guard: z.string(), labour: z.string(), iq: z.string(),
+  /** MCCodes' crimexp — the formula dialect's CRIMEXP token and the jail-bust odds. */
+  crimeExp: z.string(),
   energyRegenAt: z.string().datetime().nullable(),
   willRegenAt: z.string().datetime().nullable(),
   braveRegenAt: z.string().datetime().nullable(),

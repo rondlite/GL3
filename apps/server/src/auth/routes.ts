@@ -431,7 +431,7 @@ export function registerAuthRoutes(
       level: playerStats.level,
       strength: playerStats.strength, agility: playerStats.agility,
       guard: playerStats.guard, labour: playerStats.labour,
-      iq: playerStats.iq,
+      iq: playerStats.iq, crimeExp: playerStats.crimeExp,
       health: playerStats.health, healthMaxOverride: playerStats.healthMax,
       rankMaxHealth: ranks.maxHealth,
     }).from(players)
@@ -476,7 +476,7 @@ export function registerAuthRoutes(
         level: row.level,
         strength: row.strength.toString(), agility: row.agility.toString(),
         guard: row.guard.toString(), labour: row.labour.toString(),
-        iq: row.iq.toString(),
+        iq: row.iq.toString(), crimeExp: row.crimeExp.toString(),
         energyRegenAt: energy.stamp?.toISOString() ?? null,
         willRegenAt: will.stamp?.toISOString() ?? null,
         braveRegenAt: brave.stamp?.toISOString() ?? null,
